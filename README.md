@@ -35,7 +35,7 @@ as to how to best use them in parallel.
 
 ### Non-functional
 
-- Must accept a tuple whose firstelement is a unique name for the image,
+- Must accept a tuple whose first element is a unique name for the image,
   and a file-like object as input. An example iterator `images` is provided.
 - Must be written in Python 2.7 following PEP8.
 - Must process images in parallel. How you organize this is entirely up to you.
@@ -48,7 +48,7 @@ as to how to best use them in parallel.
 Extra points will be given for:
 
 - Utilizing all CPU cores.
-- Additionally scaling long the y axis and cropping along the x.
+- Additionally scaling along the y axis and cropping along the x.
 
 
 ## Getting Started
@@ -62,7 +62,7 @@ dependencies.
 $ virtualenv -p python2.7 coding-challenge-backend-d
 $ source coding-challenge-backend-d/bin/activate
 $ cd coding-challenge-backend-d
-$ git clone $REPO$ src
+$ git clone git@github.com:busbud/coding-challenge-d.git src
 $ cd src
 $ python setup.py develop
 ```
@@ -70,7 +70,7 @@ $ python setup.py develop
 ### Pillow
 
 Image manipulation should be handled with the setuptools-friendly
-fork of PIL, Pillow. Documentation is available below.
+fork of PIL, Pillow. Documentation is available in the [references](#references) section.
 
 ## References
 
