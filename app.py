@@ -1,6 +1,14 @@
 # -*- coding: utf8 -*-
 
+import os
+
 from PIL import Image, ImageFilter
+
+
+def images():
+    image_dir = os.walk('./images').next()
+    for filename in image_dir[2]:
+        yield open(os.path.join(image_dir[0], filename), 'rb')
 
 
 class BusbudBanner(object):
