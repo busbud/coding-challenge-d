@@ -1,7 +1,7 @@
 # -*- coding: utf8 -*-
 
 import os
-
+from multiprocessing import Pool
 from PIL import Image, ImageFilter
 
 
@@ -10,13 +10,18 @@ DESTINATION_FOLDER = './processed_images'
 
 
 def images():
-    image_dir = os.walk(SOURCE_FOLDER).next()
-    for filename in image_dir[2]:
+    """ List files in the first level of the SOURCE_FOLDER
+        returns a tuple of name, filename (full path)
+    """
+    root, dir, files = os.walk(SOURCE_FOLDER).next()
+    for filename in files:
         name = os.path.splitext(filename)[0]
-        yield name, open(os.path.join(image_dir[0], filename), 'rb')
+        yield name, os.path.join(root, filename)
 
 
 def processed_filename(name):
+    """ Using the name of the image, 
+        returns the full path of the destination file """
     return DESTINATION_FOLDER + '/' + name + '.jpg'
 
 
@@ -72,12 +77,13 @@ class BusbudBanner(object):
         return name + '-vmiddle', cls.crop_vertical(image, offset, y - offset)
 
 
-def serial_image_processor(name, fp):
+def serial_image_processor(name_filename_tuple):
     """ Create a simple implementation of the required
         image processing tasks, we will use this as a
         functional reference"""
-    name, image = BusbudBanner.load(name, fp)
-    print "image bands %s" % str(image.getbands())
+    name, filename = name_filename_tuple
+    print "STARTING: %s" % name
+    name, image = BusbudBanner.load(name, filename)
     print "scale_x %s" % name
     name, image = BusbudBanner.scale_x(name, image)
     print "blur %s" % name
@@ -93,12 +99,27 @@ def serial_image_processor(name, fp):
     # vmiddle crop
     name_vmiddle, image_vmiddle = BusbudBanner.crop_vmiddle(name, image)
     BusbudBanner.save(processed_filename(name_vmiddle), image_vmiddle)
+    print "COMPLETED: %s" % name
+    return name
+
+
+def process_images_serial():
+    for name, filename in images():
+        print "processing %s image %s" % (name, filename)
+        serial_image_processor((name, filename))
+
+
+def process_images_parallel():
+    """ Use multiprocessing.Pool to process images in parallel in
+        separate processes. """
+    pool = Pool()
+    result = pool.map_async(serial_image_processor, images())
+    print result.get()
 
 
 def main():
-    for name, image in images():
-        print "processing %s image %s" % (name, image)
-        serial_image_processor(name, image)
+    #process_images_serial()
+    process_images_parallel()
 
 
 if __name__ == '__main__':
