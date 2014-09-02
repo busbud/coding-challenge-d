@@ -1,9 +1,9 @@
 # -*- coding: utf8 -*-
 
 import os
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 from PIL import Image, ImageFilter
-
+from time import time
 
 SOURCE_FOLDER = './images'
 DESTINATION_FOLDER = './processed_images'
@@ -22,7 +22,7 @@ def images():
 def processed_filename(name):
     """ Using the name of the image, 
         returns the full path of the destination file """
-    return DESTINATION_FOLDER + '/' + name + '.jpg'
+    return DESTINATION_FOLDER + '/' + name + '.jpeg'
 
 
 class BusbudBanner(object):
@@ -77,33 +77,69 @@ class BusbudBanner(object):
         return name + '-vmiddle', cls.crop_vertical(image, offset, y - offset)
 
 
+def load_scale_blur(name_filename_tuple):
+    name, filename = name_filename_tuple
+    name, image = BusbudBanner.load(name, filename)
+    print "   scale_x %s" % name
+    name, image = BusbudBanner.scale_x(name, image)
+    print "   blur %s" % name
+    name_blur, image = BusbudBanner.blur(name, image)
+    # name_blur is not used we want to drop the *-blur name
+    return name, image
+
+
+def crop_save_serial(name_image_tuple):
+    """ Crop and Save the images one after the other
+        #Todo make this parallel
+    """
+    name, image = name_image_tuple
+    print "   Crop and Save Serial %s" % name
+    name_bottom, image_bottom = BusbudBanner.crop_bottom(name, image)
+    BusbudBanner.save(processed_filename(name_bottom), image_bottom)
+    name_top, image_top = BusbudBanner.crop_top(name, image)
+    BusbudBanner.save(processed_filename(name_top), image_top)
+    name_vmiddle, image_vmiddle = BusbudBanner.crop_vmiddle(name, image)
+    BusbudBanner.save(processed_filename(name_vmiddle), image_vmiddle)
+
+
+def crop_test(name_image_tuple):
+    """ Test Method for parallel crop """
+    name, image = name_image_tuple
+    print "   Crop Test %s" % name
+    name_bottom, image_bottom = BusbudBanner.crop_bottom(name, image)
+    BusbudBanner.save(processed_filename(name_bottom), image_bottom)
+
+
+def crop_save_parallel(name_image_tuple):
+    """ Process the crop and save in parallel.
+        Not working because cannot create Process within a Pool
+        because Pool processes are daemonic.
+    """
+    name, image = name_image_tuple
+    print "   Crop and Save Parallel %s" % name
+    p = Process(target=crop_test, args=(name_image_tuple))
+    p.start()
+    # AssertionError: daemonic processes are not allowed to have children
+
+
 def serial_image_processor(name_filename_tuple):
     """ Create a simple implementation of the required
         image processing tasks, we will use this as a
         functional reference"""
+    start_time = time()
     name, filename = name_filename_tuple
-    print "STARTING: %s" % name
-    name, image = BusbudBanner.load(name, filename)
-    print "scale_x %s" % name
-    name, image = BusbudBanner.scale_x(name, image)
-    print "blur %s" % name
-    name, image = BusbudBanner.blur(name, image)
-    # bottom crop
-    print "crop_bottom %s" % name
-    name_bottom, image_bottom = BusbudBanner.crop_bottom(name, image)
-    print "save %s" % name_bottom
-    BusbudBanner.save(processed_filename(name_bottom), image_bottom)
-    # top crop
-    name_top, image_top = BusbudBanner.crop_top(name, image)
-    BusbudBanner.save(processed_filename(name_top), image_top)
-    # vmiddle crop
-    name_vmiddle, image_vmiddle = BusbudBanner.crop_vmiddle(name, image)
-    BusbudBanner.save(processed_filename(name_vmiddle), image_vmiddle)
-    print "COMPLETED: %s" % name
+    print "\- Starting: %s" % name
+    name, image = load_scale_blur(name_filename_tuple)
+    crop_save_serial((name, image))
+    # crop_save_parallel((name, image))
+    print "/- Completed: %s in %.2f sec." % (name, time() - start_time)
     return name
 
 
 def process_images_serial():
+    """ Process image one after the other.
+        (Functional Reference)
+    """
     for name, filename in images():
         print "processing %s image %s" % (name, filename)
         serial_image_processor((name, filename))
@@ -118,8 +154,9 @@ def process_images_parallel():
 
 
 def main():
-    #process_images_serial()
+    start_time = time()
     process_images_parallel()
+    print "Total time %.2f" % (time() - start_time)
 
 
 if __name__ == '__main__':
