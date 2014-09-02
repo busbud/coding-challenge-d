@@ -102,26 +102,6 @@ def crop_save_serial(name_image_tuple):
     BusbudBanner.save(processed_filename(name_vmiddle), image_vmiddle)
 
 
-def crop_test(name_image_tuple):
-    """ Test Method for parallel crop """
-    name, image = name_image_tuple
-    print "   Crop Test %s" % name
-    name_bottom, image_bottom = BusbudBanner.crop_bottom(name, image)
-    BusbudBanner.save(processed_filename(name_bottom), image_bottom)
-
-
-def crop_save_parallel(name_image_tuple):
-    """ Process the crop and save in parallel.
-        Not working because cannot create Process within a Pool
-        because Pool processes are daemonic.
-    """
-    name, image = name_image_tuple
-    print "   Crop and Save Parallel %s" % name
-    p = Process(target=crop_test, args=(name_image_tuple))
-    p.start()
-    # AssertionError: daemonic processes are not allowed to have children
-
-
 def serial_image_processor(name_filename_tuple):
     """ Create a simple implementation of the required
         image processing tasks, we will use this as a
@@ -131,7 +111,6 @@ def serial_image_processor(name_filename_tuple):
     print "\- Starting: %s" % name
     name, image = load_scale_blur(name_filename_tuple)
     crop_save_serial((name, image))
-    # crop_save_parallel((name, image))
     print "/- Completed: %s in %.2f sec." % (name, time() - start_time)
     return name
 
