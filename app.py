@@ -21,10 +21,10 @@ def main(args):
     Main script called by the command line script and eventually the
     unittest
     """
-    name, image = args
+    name, content = args
     name, ext = os.path.splitext(name)
 
-    name, content = BusbudBanner.scale_x(*BusbudBanner.load(name, image))
+    name, content = BusbudBanner.scale_x(*BusbudBanner.load(name, content))
 
     p1 = BusbudProcess(ext, name, content, BusbudBanner.crop_top)
     p1.start()
