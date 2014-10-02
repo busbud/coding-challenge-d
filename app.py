@@ -1,7 +1,7 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
+import multiprocessing
 import os
-
 from PIL import Image, ImageFilter
 
 
@@ -9,6 +9,12 @@ def images():
     image_dir = os.walk('./images').next()
     for filename in image_dir[2]:
         yield open(os.path.join(image_dir[0], filename), 'rb')
+
+
+def image_paths():
+    image_dir = os.walk('./images').next()
+    for filename in image_dir[2]:
+        yield os.path.join(image_dir[0], filename)
 
 
 class BusbudBanner(object):
@@ -60,12 +66,50 @@ class BusbudBanner(object):
         """Crop `image` to `height` pixels from the middle."""
         y = image.size[1]
         offset = (y - height) / 2
-        return name + '-vmiddle', cls.crop_verticall(image, offset, y - offset)
+        return name + '-vmiddle', cls.crop_vertical(image, offset, y - offset)
 
 
-def main():
-    raise NotImplementedError
+def crop_and_save(name, ext, image, crop_function):
+    name, image = crop_function(name, image)
+    BusbudBanner.save(os.path.join('processed_images', name + ext), image)
+
+
+def main(image_info):
+    # We need the file extension or PIL will freak out when saving
+    ext = os.path.splitext(image_info[1].name)[1] or '.jpg'
+
+    name, image = BusbudBanner.load(*image_info)
+    _, scaled = BusbudBanner.scale_x(name, image)
+    _, blurred = BusbudBanner.blur(name, scaled)
+    crop_and_save(name, ext, blurred, BusbudBanner.crop_top)
+    crop_and_save(name, ext, blurred, BusbudBanner.crop_vmiddle)
+    crop_and_save(name, ext, blurred, BusbudBanner.crop_bottom)
+
+
+def process_image(path):
+    file_name = os.path.basename(path)
+    image_name = os.path.splitext(file_name)[0]
+    main((image_name, open(path, 'rb')))
+
+
+def process_images():
+    """Process all images in parallel.
+
+    Use a multiprocessing.Pool instead of manually creating Processes because
+    it provides a lot of useful tooling.
+
+    Unlike Process, Pool needs to serialize all the parameters to store them
+    in a Queue. When file objects are deserialized in the child process, their
+    file descriptors no longer correspond to the actual open files. Use an
+    intermediate function as the Pool.map target which accepts a file path,
+    opens it then calls the main function using the signature specified in the
+    challenge requirements.
+    """
+    pool = multiprocessing.Pool()  # use cpu_count() processes
+    pool.map(process_image, image_paths())
+    pool.close()
+    pool.join()
 
 
 if __name__ == '__main__':
-    main()
+    process_images()
