@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import multiprocessing
+import multiprocessing.pool
 import os
 from PIL import Image, ImageFilter
 
@@ -81,9 +82,18 @@ def main(image_info):
     name, image = BusbudBanner.load(*image_info)
     _, scaled = BusbudBanner.scale_x(name, image)
     _, blurred = BusbudBanner.blur(name, scaled)
-    crop_and_save(name, ext, blurred, BusbudBanner.crop_top)
-    crop_and_save(name, ext, blurred, BusbudBanner.crop_vmiddle)
+
+    # Spawn children for two of the cropping tasks and perform the third here
+    worker_top = multiprocessing.Process(target=crop_and_save, args=(
+        name, ext, blurred, BusbudBanner.crop_top))
+    worker_mid = multiprocessing.Process(target=crop_and_save, args=(
+        name, ext, blurred, BusbudBanner.crop_vmiddle))
+    worker_top.start()
+    worker_mid.start()
+
     crop_and_save(name, ext, blurred, BusbudBanner.crop_bottom)
+    worker_top.join()
+    worker_mid.join()
 
 
 def process_image(path):
@@ -92,20 +102,34 @@ def process_image(path):
     main((image_name, open(path, 'rb')))
 
 
+class NoDaemonProcess(multiprocessing.Process):
+    """Process subclass that is forcefully unable to be daemonized."""
+
+    @property
+    def daemon(self):
+        return False
+
+    @daemon.setter
+    def daemon(self, _):
+        """Do nothing, multiprocessing.Pool attempts to set this to True."""
+
+
+class NoDaemonPool(multiprocessing.pool.Pool):
+    Process = NoDaemonProcess
+
+
 def process_images():
     """Process all images in parallel.
 
-    Use a multiprocessing.Pool instead of manually creating Processes because
-    it provides a lot of useful tooling.
+    Like app.process_images, use a process pool for convenience. The last
+    three steps of the problem (cropping and saving) are also parallelized.
+    This cannot be done using multiprocessing.Pool because it daemonizes its
+    children processes, and they in turn cannot have children of their own.
 
-    Unlike Process, Pool needs to serialize all the parameters to store them
-    in a Queue. When file objects are deserialized in the child process, their
-    file descriptors no longer correspond to the actual open files. Use an
-    intermediate function as the Pool.map target which accepts a file path,
-    opens it then calls the main function using the signature specified in the
-    challenge requirements.
+    Use custom Pool and Process subclasses that ensure the children are not
+    daemonized.
     """
-    pool = multiprocessing.Pool()  # use cpu_count() processes
+    pool = NoDaemonPool()  # use cpu_count() processes
     pool.map(process_image, image_paths())
     pool.close()
     pool.join()
